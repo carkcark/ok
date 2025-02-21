@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bahtıma Ne Çıkarsa</title>
+  <style>
+    /* Sayfa ve gövde ayarları */
+    html, body { 
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      /* Arka plan görseli eklendi */
+      background: url('background.jpg') no-repeat center center fixed;
+      background-size: cover;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    .app-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    /* Çark kapsayıcısı */
+    .wheel-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100vmin;
+      height: 100vmin;
+      border-radius: 50%;
+      overflow: hidden;
+    }
+    /* Artık <img> yerine dönen bir div kullandığımız için #wheel stilini güncelledik */
+    #wheel {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background-color: black;
+      transition: transform 14s cubic-bezier(0.33, 1, 0.68, 1);
+      display: block;
+    }
+    /* 5 adet kalın çizgi için ortak CSS */
+    .line {
+      position: absolute;
+      width: 20px;             /* Çizginin kalınlığı */
+      height: 50%;             /* Yarıçap kadar uzasın (merkezden dış kenara) */
+      top: 50%;                /* Merkeze oturtmak için */
+      left: 50%;
+      transform-origin: top center;  /* Dönme noktası: çizginin üstü (merkez) */
+    }
+    /* Ortadaki TIKLA butonu (kalp) */
+    #heartBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 252px;
+      height: 252px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 2;
+    }
+    #heartIcon {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    /* Profil bölümü (tam ekran) */
+    #profileSection {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #fff;
+      text-align: center;
+      padding: 30px 20px;
+      box-sizing: border-box;
+      display: none;
+      overflow-y: auto;
+      z-index: 9999;
+    }
+    /* Profil resmi (büyütülmüş) */
+    #profileSection img {
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 20px;
+      max-width: 90vw;
+      max-height: 90vw;
+    }
+    #profileSection h2 {
+      font-size: 36px;
+      margin: 10px 0;
+    }
+    #profileSection p {
+      font-size: 24px;
+      margin: 5px 0;
+    }
+    /* WhatsApp Butonu */
+    #profileSection a {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 24px 50px;
+      background-color: #25D366;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 40px;
+    }
+    #profileSection a:hover {
+      background-color: #1ebe5a;
+    }
+    /* Spark Canvas */
+    #sparkCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: none;
+      z-index: 10000;
+    }
+    /* Mobil uyum */
+    @media (max-width: 600px) {
+      #heartBtn {
+        width: 210px;
+        height: 210px;
+      }
+      #profileSection img {
+        width: 250px;
+        height: 250px;
+      }
+      #profileSection h2 {
+        font-size: 28px;
+      }
+      #profileSection p {
+        font-size: 20px;
+      }
+      #profileSection a {
+        font-size: 28px;
+        padding: 18px 35px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Ses dosyası -->
+    <audio id="spinSound" src="spin.mp3"></audio>
+    <!-- Yeni: Profil ekranı açıldığında çalacak müzik -->
+    <audio id="music" src="music.mp3"></audio>
+    
+    <!-- Çark kapsayıcısı -->
+    <div class="wheel-container" id="wheelContainer">
+      <!-- Yeni çark div'i -->
+      <div id="wheel"></div>
+      <!-- TIKLA Butonu (Kalp) -->
+      <button id="heartBtn">
+        <img id="heartIcon" src="heart.png" alt="Kalp">
+      </button>
+    </div>
+    <!-- Profil tam ekran -->
+    <section id="profileSection">
+      <img src="murat.jpg" alt="Murat Fotoğrafı">
+      <h2>Murat</h2>
+      <p>Yaş: 42</p>
+      <p>Boy: 1.85</p>
+      <p>Kilo: 90</p>
+      <p>Dil: Türkçe, İngilizce</p>
+      <p>Meslek: Marka Uzmanı</p>
+      <a href="https://api.whatsapp.com/send/?phone=905385920995&text&type=phone_number&app_absent=0" target="_blank">
+        WHATS APP İle İletişime Geç
+      </a>
+    </section>
+    <!-- Spark Canvas -->
+    <canvas id="sparkCanvas"></canvas>
+  </div>
+  <script>
+    let currentRotation = 0;
+    let isSpinning = false;
+    const wheel = document.getElementById('wheel');
+    const heartBtn = document.getElementById('heartBtn');
+    const wheelContainer = document.getElementById('wheelContainer');
+    const profileSection = document.getElementById('profileSection');
+    const spinSound = document.getElementById('spinSound');
+    const music = document.getElementById('music');
+    const sparkCanvas = document.getElementById('sparkCanvas');
+    const ctx = sparkCanvas.getContext('2d');
+
+    // Canvas boyutu ayarlama
+    function resizeCanvas() {
+      sparkCanvas.width = window.innerWidth;
+      sparkCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Spark görseli
+    const sparkImg = new Image();
+    sparkImg.src = 'spark.png';
+
+    // Spark parçacıkları
+    let sparkParticles = [];
+    const sparkCount = 100;
+    function createSparks() {
+      sparkParticles = [];
+      for (let i = 0; i < sparkCount; i++) {
+        sparkParticles.push({
+          x: Math.random() * sparkCanvas.width,
+          y: Math.random() * sparkCanvas.height - sparkCanvas.height,
+          size: Math.random() * 50 + 20,
+          speed: Math.random() * 3 + 2,
+          angle: Math.random() * 2 * Math.PI
+        });
+      }
+    }
+
+    let sparkActive = false;
+    function startSpark() {
+      sparkActive = true;
+      sparkCanvas.style.display = 'block';
+      createSparks();
+      requestAnimationFrame(updateSpark);
+    }
+    function stopSpark() {
+      sparkActive = false;
+      sparkParticles = [];
+      sparkCanvas.style.display = 'none';
+    }
+    function updateSpark() {
+      if (!sparkActive) return;
+      ctx.clearRect(0, 0, sparkCanvas.width, sparkCanvas.height);
+      for (let i = 0; i < sparkParticles.length; i++) {
+        const sp = sparkParticles[i];
+        sp.y += sp.speed;
+        sp.x += Math.sin(sp.angle);
+        sp.angle += 0.01;
+        if (sp.y > sparkCanvas.height) {
+          sp.y = -sp.size;
+          sp.x = Math.random() * sparkCanvas.width;
+        }
+        ctx.drawImage(sparkImg, sp.x, sp.y, sp.size, sp.size);
+      }
+      requestAnimationFrame(updateSpark);
+    }
+
+    // 5 farklı renk ve yazı tanımlamaları
+    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5'];
+    const words  = ['Mutluluk', 'Aşk', 'Sevgi', 'Keyif', 'Sürpriz'];
+
+    // Sayfa yüklendiğinde 5 adet çizgiyi #wheel içine ekle
+    window.addEventListener('DOMContentLoaded', () => {
+      for (let i = 0; i < 5; i++) {
+        const line = document.createElement('div');
+        line.classList.add('line');
+        // Her çizgi, 360/5 = 72 derece aralıkla yerleşsin
+        line.style.transform = `rotate(${72 * i}deg)`;
+        line.style.backgroundColor = colors[i];
+        
+        // Çizgi içerisine yazıyı ekleyelim
+        const span = document.createElement('span');
+        span.textContent = words[i];
+        // Yazının konum ve yön ayarları:
+        span.style.position = 'absolute';
+        span.style.top = '50%';
+        span.style.left = '50%';
+        span.style.transform = `translate(-50%, -50%) rotate(-${72 * i}deg)`;
+        span.style.color = 'white';
+        span.style.fontWeight = 'bold';
+        span.style.fontSize = '20px';
+        line.appendChild(span);
+        
+        wheel.appendChild(line);
+      }
+    });
+
+    // TIKLA butonuna basınca çarkı döndür
+    heartBtn.addEventListener('click', () => {
+      if (isSpinning) return;
+      isSpinning = true;
+      spinSound.currentTime = 0;
+      spinSound.loop = true;
+      spinSound.play().catch(err => console.error("Ses çalma hatası:", err));
+
+      // Rastgele bir açı
+      const randomAngle = Math.floor(Math.random() * 360);
+      // 5 tam tur + rastgele açı
+      const fullRotations = 5 * 360;
+      currentRotation += fullRotations + randomAngle;
+
+      // CSS dönüş
+      wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+      // 14 sn sonra döndürme biter
+      setTimeout(() => {
+        isSpinning = false;
+        spinSound.pause();
+        spinSound.currentTime = 0;
+        // Çark kaybolsun, profil gözüksün
+        wheelContainer.style.display = 'none';
+        profileSection.style.display = 'block';
+        // Profil ekranı açıldığında music.mp3 çal
+        music.currentTime = 0;
+        music.play().catch(err => console.error("Müzik çalma hatası:", err));
+        // Spark/konfeti efekti
+        startSpark();
+        setTimeout(stopSpark, 5000);
+      }, 14000);
+    });
+  </script>
+</body>
+</html>
